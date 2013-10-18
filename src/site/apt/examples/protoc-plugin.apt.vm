@@ -13,7 +13,7 @@ Using Custom Protoc Plugins
 
   In the current version only plugins written in Java (or any other JVM
   language) and resolvable as Maven artifacts are supported. Also, the output
-  directory for generated files is the same as the Java output directory. 
+  directory for generated files is the same as the Java output directory.
 
   In future versions support for other types of executables will be added as well.
 
@@ -29,6 +29,13 @@ Using Custom Protoc Plugins
   <artifactId>${project.artifactId}</artifactId>
   <version>${project.version}</version>
   <extensions>true</extensions>
+  <dependencies>
+    <dependency>
+      <groupId>myproto</groupId>
+      <artifactId>myproto-protoc-plugin</artifactId>
+      <version>1.2</version>
+    </dependency>
+  </dependencies>
   <executions>
     <execution>
       <goals>
@@ -38,9 +45,6 @@ Using Custom Protoc Plugins
         <protocPlugins>
           <protocPlugin>
             <id>myproto</id>
-            <groupId>myproto</groupId>
-            <artifactId>myproto-protoc-plugin</artifactId>
-            <version>1.2</version>
             <mainClass>myproto.MyProtocPlugin</mainClass>
           </protocPlugin>
         </protocPlugins>
@@ -60,14 +64,6 @@ Using Custom Protoc Plugins
   The following options can be  included in the <<<protocPlugin>>> element:
 
   * <<<id>>> - (required) unique id for this plugin
-
-  * <<<groupId>>> - (required) group id for dependency resolution
-
-  * <<<artifactId>>> - (required) artifact id for dependency resolution
-
-  * <<<version>>> - (required) version for dependency resolution
-
-  * <<<scope>>> - (optional) resolution scope; default is <<<runtime>>>
 
   * <<<mainClass>>> - (required) Java main class to execute
 
