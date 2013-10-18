@@ -2,8 +2,6 @@ package com.google.protobuf.maven;
 
 import org.apache.maven.plugin.logging.Log;
 import org.codehaus.plexus.util.Os;
-import org.sonatype.aether.graph.Dependency;
-import org.sonatype.aether.util.artifact.DefaultArtifact;
 
 import java.io.File;
 import java.util.Collections;
@@ -29,14 +27,6 @@ public class ProtocPlugin {
 
     private String id;
 
-    private String groupId;
-
-    private String artifactId;
-
-    private String version;
-
-    private String scope = "runtime";
-
     private String mainClass;
 
     private String javaHome;
@@ -52,22 +42,6 @@ public class ProtocPlugin {
 
     public String getId() {
         return id;
-    }
-
-    public String getGroupId() {
-        return groupId;
-    }
-
-    public String getArtifactId() {
-        return artifactId;
-    }
-
-    public String getVersion() {
-        return version;
-    }
-
-    public String getScope() {
-        return scope;
     }
 
     public String getMainClass() {
@@ -104,9 +78,6 @@ public class ProtocPlugin {
      */
     public void validate(final Log log) {
         checkState(id != null, "id must be set in protocPlugin definition");
-        checkState(groupId != null, "groupId must be set in protocPlugin definition");
-        checkState(artifactId != null, "artifactId must be set in protocPlugin definition");
-        checkState(version != null, "version must be set in protocPlugin definition");
         checkState(mainClass != null, "mainClass must be set in protocPlugin definition");
         checkState(javaHome != null && new File(javaHome).isDirectory(), "javaHome is invalid: " + javaHome);
         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
@@ -163,18 +134,10 @@ public class ProtocPlugin {
         }
     }
 
-    public Dependency asDependency() {
-        return new Dependency(new DefaultArtifact(groupId, artifactId, "jar", version), scope);
-    }
-
     @Override
     public String toString() {
         return "ProtocPlugin{" +
                 "id='" + id + '\'' +
-                ", groupId='" + groupId + '\'' +
-                ", artifactId='" + artifactId + '\'' +
-                ", version='" + version + '\'' +
-                ", scope='" + scope + '\'' +
                 ", mainClass='" + mainClass + '\'' +
                 ", javaHome='" + javaHome + '\'' +
                 ", winJvmDataModel='" + winJvmDataModel + '\'' +
