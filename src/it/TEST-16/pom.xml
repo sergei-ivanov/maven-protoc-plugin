@@ -36,6 +36,13 @@
                 <artifactId>maven-protoc-plugin</artifactId>
                 <version>@project.version@</version>
                 <extensions>true</extensions>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.google.protobuf.tools.maven-protoc-plugin.its</groupId>
+                        <artifactId>test-protoc-plugin</artifactId>
+                        <version>0.0.1-SNAPSHOT</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <id>noprefix</id>
@@ -46,16 +53,10 @@
                             <protocPlugins>
                                 <protocPlugin>
                                     <id>minimal</id>
-                                    <groupId>com.google.protobuf.tools.maven-protoc-plugin.its</groupId>
-                                    <artifactId>test-protoc-plugin</artifactId>
-                                    <version>0.0.1-SNAPSHOT</version>
                                     <mainClass>plugin.MinimalPlugin</mainClass>
                                 </protocPlugin>
                                 <protocPlugin>
                                     <id>prefix</id>
-                                    <groupId>com.google.protobuf.tools.maven-protoc-plugin.its</groupId>
-                                    <artifactId>test-protoc-plugin</artifactId>
-                                    <version>0.0.1-SNAPSHOT</version>
                                     <mainClass>plugin.MinimalPlugin</mainClass>
                                     <args>
                                         <arg>prefix-</arg>

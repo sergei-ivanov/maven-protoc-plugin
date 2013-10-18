@@ -1,16 +1,10 @@
 package com.google.protobuf.maven;
 
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.codehaus.plexus.util.FileUtils;
 import org.codehaus.plexus.util.Os;
-import org.sonatype.aether.RepositorySystem;
-import org.sonatype.aether.RepositorySystemSession;
-import org.sonatype.aether.collection.CollectRequest;
-import org.sonatype.aether.graph.DependencyNode;
-import org.sonatype.aether.repository.RemoteRepository;
-import org.sonatype.aether.resolution.DependencyRequest;
-import org.sonatype.aether.util.graph.PreorderNodeListGenerator;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -27,11 +21,7 @@ import java.util.List;
  */
 public class ProtocPluginAssembler {
 
-    private final RepositorySystem repoSystem;
-
-    private final RepositorySystemSession repoSystemSession;
-
-    private final List<RemoteRepository> remoteRepos = new ArrayList<RemoteRepository>();
+    private final List<Artifact> pluginArtifacts = new ArrayList<Artifact>();
 
     private final ProtocPlugin pluginDefinition;
 
@@ -45,18 +35,14 @@ public class ProtocPluginAssembler {
 
     public ProtocPluginAssembler(
             final ProtocPlugin pluginDefinition,
-            final RepositorySystem repoSystem,
-            final RepositorySystemSession repoSystemSession,
-            final List<RemoteRepository> remoteRepos,
+            final List<Artifact> pluginArtifacts,
             final File pluginDirectory,
             final Log log) {
-        this.repoSystem = repoSystem;
-        this.repoSystemSession = repoSystemSession;
-        this.remoteRepos.addAll(remoteRepos);
         this.pluginDefinition = pluginDefinition;
         this.pluginDirectory = pluginDirectory;
         this.pluginExecutableFile = pluginDefinition.getPluginExecutableFile(pluginDirectory);
         this.log = log;
+        this.pluginArtifacts.addAll(pluginArtifacts);
     }
 
     /**
@@ -220,27 +206,9 @@ public class ProtocPluginAssembler {
         }
     }
 
-    private void resolvePluginDependencies() throws MojoExecutionException {
-        final CollectRequest collectRequest = new CollectRequest();
-        collectRequest.setRoot(pluginDefinition.asDependency());
-        for (final RemoteRepository remoteRepo : remoteRepos) {
-            collectRequest.addRepository(remoteRepo);
-        }
-
-        try {
-            final DependencyNode node = repoSystem.collectDependencies(repoSystemSession, collectRequest).getRoot();
-            final DependencyRequest request = new DependencyRequest(node, null);
-            repoSystem.resolveDependencies(repoSystemSession, request);
-            final PreorderNodeListGenerator nlg = new PreorderNodeListGenerator();
-            node.accept(nlg);
-
-            resolvedJars.addAll(nlg.getFiles());
-
-            if (log.isDebugEnabled()) {
-                log.debug("resolved jars: " + resolvedJars);
-            }
-        } catch (Exception e) {
-            throw new MojoExecutionException(e.getMessage(), e);
+    private void resolvePluginDependencies() {
+        for (final Artifact pluginArtifact : pluginArtifacts) {
+            resolvedJars.add(pluginArtifact.getFile());
         }
     }
 

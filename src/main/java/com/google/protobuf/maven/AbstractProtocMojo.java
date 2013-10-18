@@ -18,9 +18,6 @@ import org.apache.maven.toolchain.java.DefaultJavaToolChain;
 import org.codehaus.plexus.util.FileUtils;
 import org.codehaus.plexus.util.cli.CommandLineException;
 import org.codehaus.plexus.util.io.RawInputStreamFacade;
-import org.sonatype.aether.RepositorySystem;
-import org.sonatype.aether.RepositorySystemSession;
-import org.sonatype.aether.repository.RemoteRepository;
 import org.sonatype.plexus.build.incremental.BuildContext;
 
 import java.io.File;
@@ -33,16 +30,12 @@ import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.*;
 import static com.google.common.collect.Sets.newHashSet;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
-import static org.codehaus.plexus.util.FileUtils.cleanDirectory;
-import static org.codehaus.plexus.util.FileUtils.copyStreamToFile;
-import static org.codehaus.plexus.util.FileUtils.getFiles;
+import static org.codehaus.plexus.util.FileUtils.*;
 
 /**
  * Abstract Mojo implementation.
@@ -60,6 +53,13 @@ abstract class AbstractProtocMojo extends AbstractMojo {
     private static final String PROTO_FILE_SUFFIX = ".proto";
 
     private static final String DEFAULT_INCLUDES = "**/*" + PROTO_FILE_SUFFIX;
+
+    @Parameter(
+            readonly = true,
+            required = true,
+            property = "plugin.artifacts"
+    )
+    protected List<Artifact> pluginArtifacts;
 
     /**
      * The current Maven project.
@@ -96,36 +96,6 @@ abstract class AbstractProtocMojo extends AbstractMojo {
      */
     @Component
     protected MavenProjectHelper projectHelper;
-
-    /**
-     * Repository system for artifact resolution.
-     *
-     * @since 0.3.0
-     */
-    @Component
-    private RepositorySystem repoSystem;
-
-    /**
-     * Repository system session for artifact resolution.
-     *
-     * @since 0.3.0
-     */
-    @Parameter(
-            defaultValue = "${repositorySystemSession}",
-            readonly = true
-    )
-    private RepositorySystemSession repoSystemSession;
-
-    /**
-     * Remote repositories for artifact resolution.
-     *
-     * @since 0.3.0
-     */
-    @Parameter(
-            defaultValue = "${project.remotePluginRepositories}",
-            readonly = true
-    )
-    private List<RemoteRepository> remoteRepos;
 
     /**
      * A directory where native launchers for java protoc plugins will be generated.
@@ -460,9 +430,7 @@ abstract class AbstractProtocMojo extends AbstractMojo {
             getLog().info("Building protoc plugin: " + plugin.getId());
             final ProtocPluginAssembler assembler = new ProtocPluginAssembler(
                     plugin,
-                    repoSystem,
-                    repoSystemSession,
-                    remoteRepos,
+                    pluginArtifacts,
                     protocPluginDirectory,
                     getLog());
             assembler.execute();
