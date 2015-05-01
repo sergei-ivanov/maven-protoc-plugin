@@ -1,6 +1,7 @@
 package com.google.protobuf.maven;
 
 import com.google.common.collect.ImmutableList;
+
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugins.annotations.Parameter;
 
@@ -14,7 +15,7 @@ import java.util.List;
  */
 public abstract class AbstractProtocTestCompileMojo extends AbstractProtocMojo {
 
-    /**
+	/**
      * The source directories containing the test {@code .proto} definitions to be compiled.
      */
     @Parameter(
@@ -22,6 +23,14 @@ public abstract class AbstractProtocTestCompileMojo extends AbstractProtocMojo {
             defaultValue = "${basedir}/src/test/proto"
     )
     private File protoTestSourceRoot;
+	
+	/**
+     * The source directories containing the test {@code .proto} definitions to be compiled.
+     */
+    @Parameter(
+            required = false
+    )
+    private File[] protoTestSourceRoots;
 
     /**
      * This is the directory into which the (optional) descriptor set file will be created.
@@ -46,8 +55,8 @@ public abstract class AbstractProtocTestCompileMojo extends AbstractProtocMojo {
     protected String descriptorSetClassifier;
 
     @Override
-    protected void doAttachProtoSources() {
-        projectHelper.addTestResource(project, getProtoSourceRoot().getAbsolutePath(),
+    protected void doAttachProtoSources(File protoSourceRoot) {
+        projectHelper.addTestResource(project, protoSourceRoot.getAbsolutePath(),
                 ImmutableList.copyOf(getIncludes()), ImmutableList.copyOf(getExcludes()));
     }
 
@@ -73,7 +82,10 @@ public abstract class AbstractProtocTestCompileMojo extends AbstractProtocMojo {
     }
 
     @Override
-    protected File getProtoSourceRoot() {
-        return protoTestSourceRoot;
+    protected File[] getProtoSourceRoots() {
+        if (protoTestSourceRoots==null || protoTestSourceRoots.length==0) {
+        	return new File[]{protoTestSourceRoot};
+        }
+    	return protoTestSourceRoots;
     }
 }

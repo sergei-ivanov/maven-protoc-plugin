@@ -2,6 +2,7 @@ package com.google.protobuf.maven;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
+
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.repository.ArtifactRepository;
@@ -32,11 +33,13 @@ import org.codehaus.plexus.util.io.RawInputStreamFacade;
 import org.sonatype.plexus.build.incremental.BuildContext;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -384,6 +387,19 @@ abstract class AbstractProtocMojo extends AbstractMojo {
             defaultValue = "false"
     )
     private boolean forceMojoExecution;
+    
+    /**
+     * With more than a couple of dozen proto files the command line becomes to long to execute
+     * using wildcards for the protofile names will help with this
+     *
+     * @since 0.2.0
+     */
+    @Parameter(
+            required = false,
+            property = "protoc.wildcardsInWindows",
+            defaultValue = "false"
+    )
+    private boolean useWildcardsInWindows;
 
     /**
      * When {@code true}, the output directory will be cleared out prior to code generation.
@@ -405,15 +421,29 @@ abstract class AbstractProtocMojo extends AbstractMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
 
+    	getLog().info("RUNNING THE 14:49 version");
         if (skipMojo()) {
             return;
         }
-
+        
         checkParameters();
-        final File protoSourceRoot = getProtoSourceRoot();
+        final File[] protoSourceRoots = getProtoSourceRoots();
+        boolean needClean=true;
+        for (File protoSourceRoot:protoSourceRoots){
         if (protoSourceRoot.exists()) {
             try {
-                final ImmutableSet<File> protoFiles = findProtoFilesInDirectory(protoSourceRoot);
+            	ImmutableSet<File> protoFiles=null;
+            	getLog().info("useWildcards="+useWildcards());
+            	if (useWildcards()) {
+                	protoFiles = getWildcards(protoSourceRoot);
+                	for (File f:protoFiles) {
+                		getLog().info(f.toString());
+                	}
+                }
+                else
+                {
+                	protoFiles= findProtoFilesInDirectory(protoSourceRoot);
+                }
                 final File outputDirectory = getOutputDirectory();
                 final ImmutableSet<File> outputFiles = findGeneratedFilesInDirectory(getOutputDirectory());
 
@@ -421,17 +451,19 @@ abstract class AbstractProtocMojo extends AbstractMojo {
                     getLog().info("No proto files to compile.");
                 } else if (!hasDelta(protoFiles)) {
                     getLog().info("Skipping compilation because build context has no changes.");
-                    doAttachFiles();
+                    doAttachFiles(protoSourceRoot);
                 } else if (checkStaleness && checkFilesUpToDate(protoFiles, outputFiles)) {
                     getLog().info("Skipping compilation because target directory newer than sources.");
-                    doAttachFiles();
+                    doAttachFiles(protoSourceRoot);
                 } else {
                     final ImmutableSet<File> derivedProtoPathElements =
                             makeProtoPathFromJars(temporaryProtoFileDirectory, getDependencyArtifactFiles());
                     FileUtils.mkdir(outputDirectory.getAbsolutePath());
 
-                    if (clearOutputDirectory) {
-                        cleanDirectory(outputDirectory);
+                    // Quick fix to fix issues with two mvn installs in a row (ie no clean)
+                    if (needClean) {
+                    	cleanDirectory(outputDirectory);
+                    	needClean=false;
                     }
 
                     if (writeDescriptorSet) {
@@ -499,7 +531,7 @@ abstract class AbstractProtocMojo extends AbstractMojo {
                     }
                     protoc.logExecutionParameters(getLog());
 
-                    getLog().info(format("Compiling %d proto file(s) to %s", protoFiles.size(), outputDirectory));
+                    getLog().info(format("Compiling %d proto %s to %s", protoFiles.size(), useWildcards()?"directories":"file(s)",outputDirectory));
 
                     final int exitStatus = protoc.execute();
                     if (StringUtils.isNotBlank(protoc.getOutput())) {
@@ -512,7 +544,7 @@ abstract class AbstractProtocMojo extends AbstractMojo {
                     } else if (StringUtils.isNotBlank(protoc.getError())) {
                         getLog().warn("PROTOC: " + protoc.getError());
                     }
-                    doAttachFiles();
+                    doAttachFiles(protoSourceRoot);
                 }
             } catch (IOException e) {
                 throw new MojoExecutionException("An IO error occured", e);
@@ -525,9 +557,10 @@ abstract class AbstractProtocMojo extends AbstractMojo {
             getLog().info(format("%s does not exist. Review the configuration or consider disabling the plugin.",
                     protoSourceRoot));
         }
+        }
     }
 
-    /**
+	/**
      * Generates native launchers for java protoc plugins.
      * These launchers will later be added as parameters for protoc compiler.
      *
@@ -710,9 +743,11 @@ abstract class AbstractProtocMojo extends AbstractMojo {
     protected void checkParameters() {
         checkNotNull(project, "project");
         checkNotNull(projectHelper, "projectHelper");
-        final File protoSourceRoot = getProtoSourceRoot();
-        checkNotNull(protoSourceRoot);
-        checkArgument(!protoSourceRoot.isFile(), "protoSourceRoot is a file, not a directory");
+        final File[] protoSourceRoots = getProtoSourceRoots();
+        for (File protoSourceRoot:protoSourceRoots) {
+	        checkNotNull(protoSourceRoot);
+	        checkArgument(!protoSourceRoot.isFile(), "protoSourceRoot is a file, not a directory");
+        }
         checkNotNull(temporaryProtoFileDirectory, "temporaryProtoFileDirectory");
         checkState(!temporaryProtoFileDirectory.isFile(), "temporaryProtoFileDirectory is a file, not a directory");
         final File outputDirectory = getOutputDirectory();
@@ -720,8 +755,8 @@ abstract class AbstractProtocMojo extends AbstractMojo {
         checkState(!outputDirectory.isFile(), "the outputDirectory is a file, not a directory");
     }
 
-    protected abstract File getProtoSourceRoot();
-
+    protected abstract File[] getProtoSourceRoots();
+    
     protected Set<String> getIncludes() {
         return includes;
     }
@@ -752,14 +787,14 @@ abstract class AbstractProtocMojo extends AbstractMojo {
      */
     protected abstract File getDescriptorSetOutputDirectory();
 
-    protected void doAttachFiles() {
+    protected void doAttachFiles(File protoSourceRoot) {
         if (attachProtoSources) {
-            doAttachProtoSources();
+            doAttachProtoSources(protoSourceRoot);
         }
         doAttachGeneratedFiles();
     }
 
-    protected abstract void doAttachProtoSources();
+    protected abstract void doAttachProtoSources(File protoSourceRoot);
 
     protected abstract void doAttachGeneratedFiles();
 
@@ -839,6 +874,34 @@ abstract class AbstractProtocMojo extends AbstractMojo {
         }
         return ImmutableSet.copyOf(protoDirectories);
     }
+    
+    protected ImmutableSet<File> getWildcards(File protoSourceRoot) {
+		Set<File> directories = new HashSet<File>();
+		getProtoDirs(protoSourceRoot, directories);
+		Set<File> wildcards = new HashSet<File>();
+		for (File dir:directories) {
+			wildcards.add(new File(dir, "*.proto"));
+		}
+		return ImmutableSet.copyOf(wildcards);
+	}
+
+    protected void getProtoDirs(File protoSourceRoot, Set<File> directories) {
+    	File[] protoFiles=protoSourceRoot.listFiles(new FilenameFilter(){
+
+			public boolean accept(File dir, String name) {
+				return name.endsWith(".proto");
+			}
+		});
+		if (protoFiles.length>0) {
+			//only add directories that have proto files in
+	    	directories.add(protoSourceRoot);
+    	}
+    	for (File file:protoSourceRoot.listFiles()) {
+    		if (file.isDirectory()) {
+    			getProtoDirs(file, directories);
+    		}
+    	}
+	}
 
     protected ImmutableSet<File> findProtoFilesInDirectory(final File directory) throws IOException {
         checkNotNull(directory);
@@ -897,6 +960,13 @@ abstract class AbstractProtocMojo extends AbstractMojo {
     }
 
     private static final char[] HEX_CHARS = "0123456789abcdef".toCharArray();
+    
+    private boolean useWildcards() {
+    	String os = System.getProperty("os.name");
+    	getLog().debug("Os.name="+os);
+    	getLog().debug(useWildcardsInWindows +" && "+os.toLowerCase().startsWith("win"));
+    	return useWildcardsInWindows && os.toLowerCase().startsWith("win");
+    }
 
     protected static String toHexString(final byte[] byteArray) {
         final StringBuilder hexString = new StringBuilder(2 * byteArray.length);
