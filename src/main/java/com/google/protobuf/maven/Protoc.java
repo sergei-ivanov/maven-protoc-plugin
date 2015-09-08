@@ -3,6 +3,7 @@ package com.google.protobuf.maven;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+
 import org.apache.maven.plugin.logging.Log;
 import org.codehaus.plexus.util.cli.CommandLineException;
 import org.codehaus.plexus.util.cli.CommandLineUtils;
@@ -30,7 +31,7 @@ final class Protoc {
     /**
      * Prefix for logging the debug messages.
      */
-    private static final String LOG_PREFIX = "[PROTOC] ";
+    private static final String LOG_PREFIX = "[PROTOC-PLUGIN] ";
 
     /**
      * Path to the {@code protoc} executable.
@@ -40,12 +41,12 @@ final class Protoc {
     /**
      * A set of directories in which to search for definition imports.
      */
-    private final ImmutableSet<File> protoPathElements;
+    private final ImmutableList<File> protoPathElements;
 
     /**
      * A set of protobuf definitions to process.
      */
-    private final ImmutableSet<File> protoFiles;
+    private final ImmutableList<File> protoFiles;
 
     /**
      * A directory into which Java source files will be generated.
@@ -112,8 +113,8 @@ final class Protoc {
      */
     private Protoc(
             final String executable,
-            final ImmutableSet<File> protoPath,
-            final ImmutableSet<File> protoFiles,
+            final ImmutableList<File> protoPath,
+            final ImmutableList<File> protoFiles,
             final File javaOutputDirectory,
             final File cppOutputDirectory,
             final File pythonOutputDirectory,
@@ -164,8 +165,11 @@ final class Protoc {
      * @return A list consisting of the executable followed by any arguments.
      */
     public ImmutableList<String> buildProtocCommand() {
-        final List<String> command = newLinkedList();
         // add the executable
+        final List<String> command = newLinkedList();
+        for (final File protoFile : protoFiles) {
+            command.add(protoFile.toString());
+        }
         for (final File protoPathElement : protoPathElements) {
             command.add("--proto_path=" + protoPathElement);
         }
@@ -196,9 +200,6 @@ final class Protoc {
             }
             outputOption += customOutputDirectory;
             command.add(outputOption);
-        }
-        for (final File protoFile : protoFiles) {
-            command.add(protoFile.toString());
         }
         if (descriptorSetFile != null) {
             command.add("--descriptor_set_out=" + descriptorSetFile);
@@ -431,7 +432,6 @@ final class Protoc {
          */
         public Builder addProtoFile(final File protoFile) {
             checkNotNull(protoFile);
-            checkArgument(protoFile.isFile());
             checkArgument(protoFile.getName().endsWith(".proto"));
             checkProtoFileIsInProtopath(protoFile);
             protoFiles.add(protoFile);
@@ -570,8 +570,8 @@ final class Protoc {
             validateState();
             return new Protoc(
                     executable,
-                    ImmutableSet.copyOf(protopathElements),
-                    ImmutableSet.copyOf(protoFiles),
+                    ImmutableList.copyOf(protopathElements),
+                    ImmutableList.copyOf(protoFiles),
                     javaOutputDirectory,
                     cppOutputDirectory,
                     pythonOutputDirectory,

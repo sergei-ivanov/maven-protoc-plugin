@@ -22,6 +22,14 @@ public abstract class AbstractProtocCompileMojo extends AbstractProtocMojo {
             defaultValue = "${basedir}/src/main/proto"
     )
     private File protoSourceRoot;
+	
+	/**
+     * The source directories containing the {@code .proto} definitions to be compiled.
+     */
+    @Parameter(
+            required = false
+    )
+    private File[] protoSourceRoots= {};
 
     /**
      * This is the directory into which the (optional) descriptor set file will be created.
@@ -45,9 +53,9 @@ public abstract class AbstractProtocCompileMojo extends AbstractProtocMojo {
     protected String descriptorSetClassifier;
 
     @Override
-    protected void doAttachProtoSources() {
-        projectHelper.addResource(project, getProtoSourceRoot().getAbsolutePath(),
-                ImmutableList.copyOf(getIncludes()), ImmutableList.copyOf(getExcludes()));
+    protected void doAttachProtoSources(File protoSourceRoot) {
+        	projectHelper.addResource(project, protoSourceRoot.getAbsolutePath(),
+                    ImmutableList.copyOf(getIncludes()), ImmutableList.copyOf(getExcludes()));
     }
 
     @Override
@@ -72,7 +80,10 @@ public abstract class AbstractProtocCompileMojo extends AbstractProtocMojo {
     }
 
     @Override
-    protected File getProtoSourceRoot() {
-        return protoSourceRoot;
+    protected File[] getProtoSourceRoots() {
+        if (protoSourceRoots==null || protoSourceRoots.length==0) {
+        	return new File[]{protoSourceRoot};
+        }
+    	return protoSourceRoots;
     }
 }
